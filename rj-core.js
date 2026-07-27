@@ -364,6 +364,65 @@ function radarSVG(p,compact){
   return g;
 }
 
+
+/* ============================================================
+   CAPACITY DIAL
+   Deliberately a filling meter with a redline, so it reads as
+   "how full is this" rather than "what did I score".
+   ============================================================ */
+function capacityDialSVG(util,over){
+  const cx=150, cy=150, R=112, TH=26;
+  const START=-220, SWEEP=260;                     // open-bottom arc, like a gauge
+  const rad=d=>d*Math.PI/180;
+  const pt=(a,r)=>[cx+Math.cos(rad(a))*r, cy+Math.sin(rad(a))*r];
+  function arc(a0,a1,r){
+    const [x0,y0]=pt(a0,r), [x1,y1]=pt(a1,r);
+    const big=(a1-a0)>180?1:0;
+    return "M"+x0.toFixed(1)+","+y0.toFixed(1)+" A"+r+","+r+" 0 "+big+" 1 "+x1.toFixed(1)+","+y1.toFixed(1);
+  }
+  const v=clamp(util,0,1);
+  const col = v>=1?"#FF3C50" : v>=0.8?"#FF6D50" : v>=0.65?"#F5A623" : v>=0.45?"#00D4D8" : "#2DD4BF";
+  let g='<svg viewBox="0 0 300 300" xmlns="http://www.w3.org/2000/svg" style="overflow:visible">';
+  g+='<defs><linearGradient id="capg" x1="0" y1="0" x2="1" y2="0">'+
+     '<stop offset="0" stop-color="#2DD4BF"/><stop offset="0.45" stop-color="#00D4D8"/>'+
+     '<stop offset="0.72" stop-color="#F5A623"/><stop offset="1" stop-color="#FF3C50"/></linearGradient></defs>';
+  // empty track
+  g+='<path d="'+arc(START,START+SWEEP,R)+'" fill="none" stroke="rgba(120,170,235,.13)" stroke-width="'+TH+'" stroke-linecap="round"/>';
+  // graduation ticks every 10%
+  for(let i=0;i<=10;i++){
+    const a=START+SWEEP*(i/10), major=(i%5===0);
+    const [x0,y0]=pt(a,R+TH/2+5), [x1,y1]=pt(a,R+TH/2+(major?13:9));
+    g+='<line x1="'+x0.toFixed(1)+'" y1="'+y0.toFixed(1)+'" x2="'+x1.toFixed(1)+'" y2="'+y1.toFixed(1)+
+       '" stroke="rgba(168,190,220,'+(major?.55:.25)+')" stroke-width="'+(major?2:1.2)+'" stroke-linecap="round"/>';
+  }
+  // 80% redline, the thing that matters
+  const aC=START+SWEEP*0.8;
+  const [rx0,ry0]=pt(aC,R-TH/2-4), [rx1,ry1]=pt(aC,R+TH/2+4);
+  g+='<line x1="'+rx0.toFixed(1)+'" y1="'+ry0.toFixed(1)+'" x2="'+rx1.toFixed(1)+'" y2="'+ry1.toFixed(1)+
+     '" stroke="#FFFFFF" stroke-width="3.4" stroke-linecap="round"/>';
+  const [lx,ly]=pt(aC,R+TH/2+26);
+  g+='<text x="'+lx.toFixed(1)+'" y="'+ly.toFixed(1)+'" text-anchor="middle" font-family="Arial" '+
+     'font-size="11" font-weight="700" fill="#A8BEDC">80%</text>';
+  const [lx2,ly2]=pt(aC,R+TH/2+38);
+  g+='<text x="'+lx2.toFixed(1)+'" y="'+ly2.toFixed(1)+'" text-anchor="middle" font-family="Arial" '+
+     'font-size="8.5" font-weight="700" letter-spacing="1.2" fill="#6E86A8">CEILING</text>';
+  // the fill itself, animated by stroke-dashoffset
+  const full=2*Math.PI*R*(SWEEP/360);
+  g+='<path id="capArc" d="'+arc(START,START+SWEEP,R)+'" fill="none" stroke="url(#capg)" stroke-width="'+TH+
+     '" stroke-linecap="round" stroke-dasharray="'+full.toFixed(1)+'" stroke-dashoffset="'+full.toFixed(1)+
+     '" data-full="'+full.toFixed(1)+'" data-v="'+v.toFixed(4)+'" data-col="'+col+
+     '" style="transition:stroke-dashoffset 1.5s cubic-bezier(.16,1,.3,1)"/>';
+  // needle
+  const aN=START+SWEEP*v;
+  const [nx,ny]=pt(aN,R-TH/2-8);
+  g+='<line id="capNeedle" x1="'+cx+'" y1="'+cy+'" x2="'+nx.toFixed(1)+'" y2="'+ny.toFixed(1)+
+     '" stroke="#FFFFFF" stroke-width="2.6" stroke-linecap="round" opacity="0" '+
+     'style="transition:opacity .5s .9s"/>';
+  g+='<circle cx="'+cx+'" cy="'+cy+'" r="7" fill="#03081A" stroke="#FFFFFF" stroke-width="2.2"/>';
+  g+='</svg>';
+  return g;
+}
+
 /* ============================================================
    GAUGE
    ============================================================ */
@@ -515,6 +574,7 @@ GLOBAL.RJ = {
   compute: compute,
   radarSVG: radarSVG,
   gaugeSVG: gaugeSVG,
+  capacityDialSVG: capacityDialSVG,
   buildFindings: buildFindings,
   verdictText: verdictText,
   orgName: orgName,
